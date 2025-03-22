@@ -1,0 +1,371 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Berita {
+  id          Int       @id @default(autoincrement()) @map("id")
+  path        String    @map("path")
+  tipe        String    @map("tipe")
+  deskripsi   String    @db.Text @map("deskripsi")
+  createdAt   DateTime? @map("created_at")
+  updatedAt   DateTime? @map("updated_at")
+
+  @@map("beritas")
+}
+
+model DataJoki {
+  id             Int       @id @default(autoincrement()) @map("id")
+  orderId       String    @db.Text @map("order_id")
+  emailJoki     String    @db.Text @map("email_joki")
+  passwordJoki  String    @db.Text @map("password_joki")
+  loginviaJoki  String    @db.Text @map("loginvia_joki")
+  nicknameJoki  String    @db.Text @map("nickname_joki")
+  requestJoki   String    @db.Text @map("request_joki")
+  catatanJoki   String    @db.Text @map("catatan_joki")
+  statusJoki    String    @db.Text @map("status_joki")
+  createdAt     DateTime? @map("created_at")
+  updatedAt     DateTime? @map("updated_at")
+
+  @@map("data_joki")
+}
+
+model Deposits {
+  id            Int       @id @default(autoincrement()) @map("id")
+  username      String    @map("username")
+  metode        String    @map("metode")
+  noPembayaran  String    @map("no_pembayaran")
+  jumlah        Int       @map("jumlah")
+  status        String    @map("status")
+  createdAt     DateTime? @map("created_at")
+  updatedAt     DateTime? @map("updated_at")
+
+  @@map("deposits")
+}
+
+model Footer {
+  id          Int       @id @default(autoincrement()) @map("id")
+  namaFooter String     @db.Text @map("nama_footer")
+  urlFooter  String?    @db.Text @map("url_footer")
+  parent     Int?       @map("parent")
+  createdAt  DateTime?  @map("created_at")
+  updatedAt  DateTime?  @map("updated_at")
+
+  @@map("footer")
+}
+
+model Categories {
+  id            Int       @id @default(autoincrement()) @map("id")
+  nama          String    @map("nama")
+  subNama       String    @map("sub_nama")
+  brand         String    @db.Text @map("brand")
+  kode          String?   @map("kode")
+  serverId      Int       @default(0)  @map("server_id")
+  status        String    @default("active") @map("status")
+  thumbnail     String    @map("thumbnail")
+  tipe          String    @default("game") @map("tipe")
+  petunjuk      String?   @map("petunjuk")
+  ketLayanan    String?   @db.Text @map("ket_layanan")
+  ketId         String?   @db.Text @map("ket_id")
+  placeholder1  String    @db.Text @map("placeholder_1")
+  placeholder2  String    @db.Text @map("placeholder_2")
+  createdAt     DateTime? @map("created_at")
+  updatedAt     DateTime? @map("updated_at")
+  bannerLayanan String    @map("bannerlayanan")
+  vouchers     VoucherCategory[]
+
+
+  @@map("kategoris")
+}
+
+model Layanan {
+  id                 Int       @id @default(autoincrement()) @map("id")
+  kategoriId         Int       @map("kategori_id")
+  subCategoryId      Int       @default(0) @map("sub_category_id")
+  layanan            String    @map("layanan")
+  providerId         String    @map("provider_id")
+  harga              Int       @map("harga")
+  hargaReseller      Int       @map("harga_reseller")
+  hargaPlatinum      Int       @map("harga_platinum")
+  hargaGold          Int       @map("harga_gold")
+  hargaFlashSale     Int?      @default(0) @map("harga_flash_sale")
+  profit             Int       @map("profit")
+  profitReseller     Int       @map("profit_reseller")
+  profitPlatinum     Int       @map("profit_platinum")
+  profitGold         Int       @map("profit_gold")
+  isFlashSale        Boolean       @db.TinyInt @map("is_flash_sale")
+  judulFlashSale     String?   @db.Text @map("judul_flash_sale")
+  bannerFlashSale    String?   @db.Text @map("banner_flash_sale")
+  expiredFlashSale   DateTime? @db.Date @map("expired_flash_sale")
+  catatan            String    @db.LongText @map("catatan")
+  status             Boolean    @map("status")
+  provider           String    @map("provider")
+  productLogo        String?   @map("product_logo")
+  createdAt          DateTime? @map("created_at")
+  updatedAt          DateTime? @map("updated_at")
+
+  @@map("layanans")
+}
+
+model Method {
+  id         Int       @id @default(autoincrement()) @map("id")
+  name       String    @db.VarChar(55) @map("name")
+  images     String    @db.VarChar(250) @map("images")
+  code       String    @db.VarChar(100) @map("code")
+  keterangan String    @db.VarChar(250) @map("keterangan")
+  tipe       String    @db.VarChar(225) @map("tipe")
+  createdAt  DateTime? @map("created_at")
+  updatedAt  DateTime? @map("updated_at")
+
+  @@map("methods")
+}
+
+model Ovo {
+  id                Int       @id @default(autoincrement()) @map("id")
+  refId             String    @map("RefId")
+  updateAccessToken String    @db.VarChar(1000) @map("UpdateAccessToken")
+  authToken         String    @db.VarChar(1000) @map("AuthToken")
+  createdAt         DateTime? @map("created_at")
+  updatedAt         DateTime? @map("updated_at")
+
+  @@map("ovos")
+}
+model Pembayaran {
+  id             Int       @id @default(autoincrement()) @map("id")
+  orderId        String    @unique @map("order_id")
+  harga          String    @map("harga")
+  noPembayaran   String?   @db.Text @map("no_pembayaran")
+  noPembeli      Int       @map("no_pembeli")
+  status         String    @map("status")
+  metode         String    @map("metode")
+  reference      String?   @map("reference")
+  createdAt      DateTime? @map("created_at")
+  updatedAt      DateTime? @map("updated_at")
+  
+  pembelian      Pembelian? @relation("PembayaranToPembelian")
+
+  @@map("pembayarans")
+}
+
+model Pembelian {
+  id                    Int       @id @default(autoincrement()) @map("id")
+  orderId               String    @unique @map("order_id")
+  username              String?   @map("username")
+  userId                String?   @map("user_id")
+  zone                  String?   @map("zone")
+  nickname              String?   @map("nickname")
+  emailVilog            String?   @db.Text @map("email_vilog")
+  passwordVilog         String?   @db.Text @map("password_vilog")
+  loginviaVilog         String?   @db.Text @map("loginvia_vilog")
+  layanan               String    @map("layanan")
+  harga                 Int       @map("harga")
+  profit                Int       @map("profit")
+  providerOrderId       String?   @map("provider_order_id")
+  status                String    @map("status")
+  log                   String?   @db.VarChar(1000) @map("log")
+  sn                    String?   @map("sn")
+  tipeTransaksi         String    @default("game") @map("tipe_transaksi")
+  isDigi                Boolean   @map("is_digi")
+  refId                 String?   @map("ref_id")
+  successReportSended   Boolean   @map("success_report_sended")
+  createdAt             DateTime? @map("created_at")
+  updatedAt             DateTime? @map("updated_at")
+  
+  pembayaran            Pembayaran? @relation("PembayaranToPembelian", fields: [orderId], references: [orderId])
+
+  @@map("pembelians")
+}
+
+
+model WebsiteConfig {
+  id                    Int   @id @default(autoincrement())
+  judul_web            String
+  deskripsi_web        String
+  keyword             String
+  og_image            String?
+  logo_header         String?
+  logo_footer         String?
+  logo_favicon        String?
+  logo_banner         String?
+  logo_cs             String?
+  url_wa              String
+  url_ig              String
+  url_tiktok          String
+  url_youtube         String
+  url_fb              String
+  kbrstore_api        String
+  slogan_web          String
+  snk                 String
+  privacy             String
+  warna1              String
+  warna2              String
+  warna3              String
+  warna4              String
+  warna5              String
+  harga_gold          String
+  harga_platinum      String
+  tripay_api          String?
+  tripay_merchant_code String?
+  tripay_private_key  String?
+  duitku_key          String?
+  duitku_merchant     String?
+  username_digi       String?
+  api_key_digi        String?
+  apigames_secret     String?
+  apigames_merchant   String?
+  vip_apiid           String?
+  vip_apikey          String?
+  digi_seller_user    String?
+  digi_seller_key     String?
+  nomor_admin         String?
+  wa_key              String?
+  wa_number           String?
+  ovo_admin           String?
+  ovo1_admin          String?
+  gopay_admin         String?
+  gopay1_admin        String?
+  dana_admin          String?
+  shopeepay_admin     String?
+  bca_admin           String?
+  mandiri_admin       String?
+  logo_ceo            String?
+  sejarah             String
+  sejarah_1           String
+  visi                String
+  misi                String
+  nama_ceo            String
+  deskripsi_ceo       String
+  nama_bagan          String
+  alamat              String
+  telp                String
+  email               String
+  created_at          DateTime? @default(now())
+  updated_at          DateTime? @updatedAt
+  waPending     String?    
+  waPaid    String?
+  waProcess  String?
+  waSuccess  String?
+
+
+  @@map("setting_webs")
+}
+
+model SubCategory {
+  id           Int       @id @default(autoincrement()) @map("id")
+  categoryId   Int       @map("category_id")
+  code         String    @map("code")
+  name         String    @map("name")
+  active       Boolean    @map("active")
+  createdAt    DateTime? @map("created_at")
+  updatedAt    DateTime? @map("updated_at")
+
+  @@map("sub_categories")
+}
+
+model Users {
+  id             Int       @id @default(autoincrement()) @map("id")
+  name           String    @map("name")
+  username       String    @unique @map("username")
+  password       String    @map("password")
+  whatsapp       String?   @db.VarChar(225) @map("whatsapp")
+  balance        Int       @map("balance")
+  role           String    @map("role")
+  otp            String?   @map("otp")
+  apiKey         String?   @map("api_key")
+  createdAt      DateTime? @map("created_at")   @default(now())
+  updatedAt      DateTime? @map("updated_at")
+  lastPaymentAt  DateTime? @map("last_payment_at")
+
+  @@map("users")
+}
+
+// For NextAuth support, add these models
+model Account {
+  id                String   @id @default(cuid()) @map("id")
+  userId            String   @map("user_id")
+  type              String   @map("type")
+  provider          String   @map("provider")
+  providerAccountId String   @map("provider_account_id")
+  refreshToken      String?  @db.Text @map("refresh_token")
+  accessToken       String?  @db.Text @map("access_token")
+  expiresAt         Int?     @map("expires_at")
+  tokenType         String?  @map("token_type")
+  scope             String?  @map("scope")
+  idToken           String?  @db.Text @map("id_token")
+  sessionState      String?  @map("session_state")
+
+  user User_Auth     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid()) @map("id")
+  sessionToken String   @unique @map("session_token")
+  userId       String   @map("user_id")
+  expires      DateTime @map("expires")
+  user         User_Auth @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model User_Auth {
+  id            String    @id @default(cuid()) @map("id")
+  name          String?   @map("name")
+  email         String?   @unique @map("email")
+  emailVerified DateTime? @map("email_verified")
+  image         String?   @map("image")
+  accounts      Account[]
+  sessions      Session[]
+
+  @@map("users_auth")
+}
+
+model VerificationToken {
+  identifier String    @map("identifier")
+  token      String    @unique @map("token")
+  expires    DateTime  @map("expires")
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Voucher {
+  id             Int       @id @default(autoincrement())
+  code           String    @unique
+  discountType   String    
+  discountValue  Float     
+  maxDiscount    Float?    
+  minPurchase    Float?    
+  usageLimit     Int?      
+  usageCount     Int       @default(0)
+  isForAllCategories Boolean @default(false) @map("is_for_all_categories")
+  isActive       Boolean   @default(true) @map("is_active")
+  startDate      DateTime  @default(now()) @map("start_date")
+  expiryDate     DateTime  @map("expiry_date")
+  description    String?
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+
+  
+  categories     VoucherCategory[]
+
+  @@map("vouchers")
+}
+
+model VoucherCategory {
+  id          Int        @id @default(autoincrement())
+  voucherId   Int        @map("voucher_id")
+  categoryId  Int        @map("category_id")
+  
+  voucher     Voucher    @relation(fields: [voucherId], references: [id], onDelete: Cascade)
+  category    Categories @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  
+  @@unique([voucherId, categoryId])
+  @@map("voucher_categories")
+}

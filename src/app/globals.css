@@ -1,0 +1,72 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 219 100% 10%; /* #001435 */
+    --foreground: 210 40% 98%; /* #f8fafc */
+    --card: 217 100% 16%; /* #001f54 */
+    --card-foreground: 210 40% 98%; /* #f8fafc */
+    --popover: 217 100% 16%; /* #001f54 */
+    --popover-foreground: 210 40% 98%; /* #f8fafc */
+    --primary: 213 93% 64%; /* #4f9cf9 */
+    --primary-foreground: 219 100% 10%; /* #001435 */
+    --secondary: 197 70% 73%; /* #8ecae6 */
+    --secondary-foreground: 219 100% 10%; /* #001435 */
+    --muted: 210 40% 98% / 0.1; /* rgba(248, 250, 252, 0.1) */
+    --muted-foreground: 210 40% 98% / 0.7; /* rgba(248, 250, 252, 0.7) */
+    --accent: 43 100% 50%; /* #ffb703 */
+    --accent-foreground: 219 100% 10%; /* #001435 */
+    --destructive: 27.325 24.5% 57.7%; /* oklch(0.577 0.245 27.325) dengan perkiraan HSL */
+    --destructive-foreground: 0 0% 98.5%; /* oklch(0.985 0 0) dengan perkiraan HSL */
+    --border: 213 93% 64% / 0.2; /* rgba(79, 156, 249, 0.2) */
+    --input: 213 93% 64% / 0.2; /* rgba(79, 156, 249, 0.2) */
+    --ring: 213 93% 64% / 0.3; /* rgba(79, 156, 249, 0.3) */
+    --chart-1: 213 93% 64%; /* #4f9cf9 */
+    --chart-2: 197 70% 73%; /* #8ecae6 */
+    --chart-3: 43 100% 50%; /* #ffb703 */
+    --chart-4: 31 100% 49%; /* #fb8500 */
+    --chart-5: 347 83% 61%; /* #ef476f */
+    --radius: 0.625rem;
+  }
+
+  .dark {
+    --background: 219 100% 10%; /* #001435 */
+    --foreground: 210 40% 98%; /* #f8fafc */
+    --card: 217 100% 16%; /* #001f54 */
+    --card-foreground: 210 40% 98%; /* #f8fafc */
+    --popover: 217 100% 16%; /* #001f54 */
+    --popover-foreground: 210 40% 98%; /* #f8fafc */
+    --primary: 213 93% 64%; /* #4f9cf9 */
+    --primary-foreground: 219 100% 10%; /* #001435 */
+    --secondary: 197 70% 73%; /* #8ecae6 */
+    --secondary-foreground: 219 100% 10%; /* #001435 */
+    --muted: 210 40% 98% / 0.1; /* rgba(248, 250, 252, 0.1) */
+    --muted-foreground: 210 40% 98% / 0.7; /* rgba(248, 250, 252, 0.7) */
+    --accent: 43 100% 50%; /* #ffb703 */
+    --accent-foreground: 219 100% 10%; /* #001435 */
+    --destructive: 25.723 14.1% 39.6%; /* oklch(0.396 0.141 25.723) dengan perkiraan HSL */
+    --destructive-foreground: 0 0% 98.5%; /* oklch(0.985 0 0) dengan perkiraan HSL */
+    --border: 213 93% 64% / 0.2; /* rgba(79, 156, 249, 0.2) */
+    --input: 213 93% 64% / 0.2; /* rgba(79, 156, 249, 0.2) */
+    --ring: 213 93% 64% / 0.3; /* rgba(79, 156, 249, 0.3) */
+  }
+
+  * {
+    @apply border-border outline-ring/50;
+    input::-webkit-outer-spin-button,
+    input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    /* Firefox */
+    input[type='number'] {
+      -moz-appearance: textfield;
+    }
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}

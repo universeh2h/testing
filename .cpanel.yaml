@@ -1,0 +1,7 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/vazz1436/nodejs-apps/myapp/
+    - /bin/cp -R * $DEPLOYPATH
+    - cd $DEPLOYPATH && npm install --production
+    - cd $DEPLOYPATH && npm run build

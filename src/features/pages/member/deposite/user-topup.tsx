@@ -25,7 +25,7 @@ import { TooltipProvider } from '@/components/ui/tooltip';
 import { SelectPayment } from './components/selectPayment';
 import axios from 'axios';
 import { toast } from 'sonner';
-import { useRouter } from 'next/navigation';
+import PendingTransaction from './components/pendingTransaction';
 
 interface Deposit {
   jumlah: number;
@@ -37,21 +37,34 @@ interface Deposit {
   username: string;
 }
 
+
+interface PaymentResponse {
+  data : {
+    data : {
+      createdAt: string
+      depositId: string
+      id: number
+      jumlah: number
+      metode: string
+      noPembayaran: string
+      status: string
+      updatedAt: string | null
+      username: string
+    }
+  }
+}
+
 export function UserTopUp() {
   const [amount, setAmount] = useState<string>('');
   const [showPaymentMethods, setShowPaymentMethods] = useState(false);
   const [selectedMethodId, setSelectedMethodId] = useState<number | null>(null);
   const [code, setCode] = useState<string>('');
   const [loading, setIsLoading] = useState(false);
-  const { push } = useRouter();
 
 
   // Fetch deposits data
   const { data: depositsData, isLoading: depositsLoading } =
     trpc.deposits.getByUsername.useQuery();
-
-
-    console.log(depositsData?.data)
   const deposits = depositsData?.data?.history || [];
   const user =   depositsData?.data?.user 
 
@@ -84,12 +97,11 @@ export function UserTopUp() {
   const handleDeposit = async () => {
     setIsLoading(true);
     try {
-      const response = await axios.post('/api/deposit', {
+      const response : PaymentResponse = await axios.post('/api/deposit', {
         code,
         amount: parseInt(amount),
       });
       toast.success('Deposit berhasil');
-      push(response.data.paymentUrl);
     } catch (error) {
       console.error(error)
       toast.error('Terjadi kesalahan');
@@ -176,7 +188,7 @@ export function UserTopUp() {
 
           {/* History Tab */}
           <TabsContent value="history" className="mt-4">
-            <HistorySection deposits={deposits} />
+            <PendingTransaction data={deposits} />
           </TabsContent>
         </Tabs>
       )}
@@ -267,48 +279,3 @@ function CustomAmountInput({
   );
 }
 
-// History Section
-function HistorySection({ deposits }: { deposits: Deposit[] }) {
-  if (!deposits || deposits.length === 0) {
-    return (
-      <div className="text-center py-8">
-        <Clock className="mx-auto h-12 w-12 text-muted-foreground mb-3" />
-        <p className="text-muted-foreground">Belum ada riwayat top up</p>
-      </div>
-    );
-  }
-
-
-  console.log(deposits)
-
-  return (
-    <div className="space-y-3">
-      {deposits.map((deposit) => (
-        <Card key={deposit.id}>
-          <CardContent className="p-4 flex justify-between items-center">
-            <div className="flex items-start gap-3">
-              <div className="bg-primary/10 p-2 rounded-full">
-                <ArrowUpRight className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium">{deposit.metode}</p>
-                <p className="text-sm text-muted-foreground">
-                  {formatDate(deposit.createdAt as string)}
-                </p>
-              </div>
-            </div>
-            <p
-              className={`font-semibold ${
-                deposit.status === 'PENDING' ? 'text-yellow-500' : 'text-green-500'
-              }`}
-            >
-              {deposit.status === 'SUCCESS'
-                ? `+${FormatPrice(deposit.jumlah)}`
-                : `${FormatPrice(deposit.jumlah)}`}
-            </p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  );
-}

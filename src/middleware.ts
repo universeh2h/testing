@@ -7,7 +7,7 @@ export const REDIRECT = '/';
 export const PUBLIC_ROUTES = ['/'];
 export const MEMBER_ROUTE = ['/profile'];
 export const ADMIN_ROUTE = ['/dashboard'];
-export const AUTH_ROUTES = ['/login', '/register', '/auth/forgot-password'];
+export const AUTH_ROUTES = ['/auth/login', '/auth/register', '/auth/forgot-password'];
 
 export async function middleware(request: NextRequest) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
@@ -27,7 +27,7 @@ export async function middleware(request: NextRequest) {
   if (ADMIN_ROUTE.some(route => pathname.startsWith(route))) {
     // Redirect to login if not authenticated
     if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return NextResponse.redirect(new URL('/auth/login', request.url))
     }
     
     // Check if user has admin role
@@ -40,7 +40,7 @@ export async function middleware(request: NextRequest) {
   if (MEMBER_ROUTE.some(route => pathname.startsWith(route))) {
     // Redirect to login if not authenticated
     if (!token) {
-      return NextResponse.redirect(new URL('/login', request.url))
+      return NextResponse.redirect(new URL('/auth/login', request.url))
     }
   }
   

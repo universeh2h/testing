@@ -38,7 +38,8 @@ model Deposits {
   id            Int       @id @default(autoincrement()) @map("id")
   username      String    @map("username")
   metode        String    @map("metode")
-  noPembayaran  String    @map("no_pembayaran")
+  depositId     String?   @map("deposit_id")
+  noPembayaran  String    @map("no_pembayaran")  @unique
   jumlah        Int       @map("jumlah")
   status        String    @map("status")
   createdAt     DateTime? @map("created_at")

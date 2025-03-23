@@ -50,7 +50,6 @@ export class Duitku {
     );
 
     const paymentData = await duitkuResponse.json();
-    console.log(paymentData)
     return paymentData;
   }
 }

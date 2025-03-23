@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { Digiflazz } from '@/lib/digiflazz';
 import { DIGI_KEY, DIGI_USERNAME, DUITKU_MERCHANT_CODE } from '@/constants';
+import { handleOrderStatusChange } from '@/lib/whatsapp-message';
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,6 +43,9 @@ export async function POST(req: NextRequest) {
         publisherOrderId,
         sourceAccount
     } = callbackData;
+    const baseUrl = process.env.NEXTAUTH_URL || '';
+
+    const invoiceLink = `${baseUrl}/invoice?invoice=${merchantOrderId}`;
 
     // Validate required fields
     if (
@@ -74,11 +78,17 @@ export async function POST(req: NextRequest) {
       if (depositIdMatch) {
         const deposit = await tx.deposits.findFirst({
           where: {
-            noPembayaran: merchantOrderId
+            depositId: merchantOrderId
           },
         });
 
-        console.log('Deposit:', deposit);
+        if (deposit && deposit.status === 'SUCCESS') {
+          return NextResponse.json({
+            success: true,
+            message: 'Deposit already processed',
+            data: { orderId: merchantOrderId, status: deposit.status }
+          });
+        }
         
         if (!deposit) {
           return NextResponse.json({
@@ -106,6 +116,19 @@ export async function POST(req: NextRequest) {
               username: deposit.username
             }
           });
+
+        await handleOrderStatusChange({
+          orderData: {
+            amount: deposit.jumlah,
+            link: '',
+            productName: `DEPOSIT ${user?.username}`,
+            status: newStatus,
+            customerName : deposit.username,
+            method: deposit.metode,
+            orderId: merchantOrderId,
+            whatsapp: user?.whatsapp as string
+          }
+        });
           
           if (user) {
             await tx.users.update({
@@ -116,6 +139,8 @@ export async function POST(req: NextRequest) {
             });
           }
         }
+
+                  
         
         return NextResponse.json({
           success: true,
@@ -134,11 +159,49 @@ export async function POST(req: NextRequest) {
             orderId: merchantOrderId,
           },
         });
+
+        if (pembelian && pembelian.status === 'SUCCESS') {
+          return NextResponse.json({
+            success: true,
+            message: 'Order already processed',
+            data: { orderId: merchantOrderId, status: pembelian.status }
+          });
+        }
         
         const layanan = await tx.layanan.findFirst({
           where: {
             layanan: productDetail,
           },
+        });
+
+        const pembayaran = await  tx.pembayaran.findFirst({
+          where : {
+            orderId : merchantOrderId
+          }
+        })
+        if(pembayaran){
+          await  tx.pembayaran.update({
+            where : {
+              orderId : merchantOrderId
+            },
+            data : {
+              status : "PAID",
+              updatedAt : new Date()
+            }
+          })
+        }
+
+        await handleOrderStatusChange({
+          orderData: {
+            amount: pembelian?.harga as number,
+            link: invoiceLink,
+            productName: layanan?.layanan as string,
+            status: 'PAID',
+            customerName : pembelian?.nickname ?? 'Guest',
+            method: pembayaran?.metode,
+            orderId: merchantOrderId,
+            whatsapp: pembayaran?.noPembeli.toString()
+          }
         });
         
         console.log('Layanan:', layanan);
@@ -169,6 +232,18 @@ export async function POST(req: NextRequest) {
                   sn: datas.sn,
                   refId: datas.ref_id,
                   updatedAt: new Date()
+                }
+              });
+              await handleOrderStatusChange({
+                orderData: {
+                  amount: pembelian?.harga as number,
+                  link: invoiceLink,
+                  productName: layanan?.layanan as string,
+                  status: newStatus,
+                  customerName : pembelian?.nickname ?? 'Guest',
+                  method: pembayaran?.metode,
+                  orderId: merchantOrderId,
+                  whatsapp: pembayaran?.noPembeli.toString()
                 }
               });
             } else {

@@ -43,14 +43,13 @@ export default function LoginPage() {
       });
 
       if (response?.error) {
-        setLoginError('Invalid username or password');
+        setLoginError('Invalid username atau password');
         return;
       }
 
       window.location.href = '/'
     } catch (error) {
-      setLoginError('An unexpected error occurred');
-      console.error('Login error:', error);
+      setLoginError('Terjadi Kesalahan ');
     } finally {
       setIsLoading(false);
       reset();
@@ -101,12 +100,12 @@ export default function LoginPage() {
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Logging in...' : 'Login'}
+            {isLoading ? 'Loading...' : 'Login'}
           </Button>
         </div>
 
         <div className="text-center text-sm">
-          Don&apos;t have an account?{' '}
+          Belum Punya Account?{' '}
           <Link href="/auth/register" className="text-blue-500 hover:underline">
             Register
           </Link>

@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     console.log('Normalized status:', normalizedStatus);
     
     // Simplified status mapping - only SUCCESS or FAILED
-    const purchaseStatus = normalizedStatus === 'Sukses' ? 'SUCCESS' : 'FAILED';
+    const purchaseStatus = normalizedStatus === 'sukses' ? 'SUCCESS' : 'FAILED';
     
     console.log('Mapped purchase status:', purchaseStatus);
 

@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     // Mencari metode pembayaran
     const method = await prisma.method.findFirst({
       where: { code },
-      select: { name: true },
+      select: { name: true,code : true },
     });
 
     if (!method) {
@@ -39,71 +39,87 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const noPembayaran  =  GenerateRandomId('DEP')
-    // Gunakan transaksi Prisma untuk menjaga konsistensi data
-    const result = await prisma.$transaction(async (tx) => {
-      // Buat catatan deposit terlebih dahulu
-      const deposit = await tx.deposits.create({
-        data: {
-          username: user.username,
-          metode: method.name,
-          status: 'PENDING',
-          jumlah: amount,
-          noPembayaran,
-          createdAt : new Date()
-        },
-      });
-    
-      // Buat timestamp dan tanda tangan
-      const timestamp = Math.floor(Date.now() / 1000);
-      const paymentAmount = amount.toString();
-      const signature = crypto
-        .createHash('md5')
-        .update(
-          DUITKU_MERCHANT_CODE + noPembayaran + paymentAmount + DUITKU_API_KEY
-        )
-        .digest('hex');
-    
-      return { deposit, timestamp, signature };
-    });
-
-    // Sekarang buat pembayaran di Duitku - setelah transaksi DB selesai
-    const paymentData = await duitku.Create({
-      amount,
-      code,
-      merchantOrderId: noPembayaran,
-      productDetails: `Deposit for ${user.username}`,
-      sign: result.signature,
-      time: result.timestamp,
+    // Combine all database operations into a single transaction
+const result = await prisma.$transaction(async (tx) => {
+  const noPembayaran = GenerateRandomId('DEP');
+  
+  // Create deposit record
+  const deposit = await tx.deposits.create({
+    data: {
       username: user.username,
-      returnUrl: `${process.env.NEXTAUTH_URL}/profile`,
+      metode: method.name,
+      status: 'PENDING',
+      jumlah: amount,
+      noPembayaran,
+      depositId: noPembayaran,
+      createdAt: new Date()
+    },
+  });
+
+  // Create timestamp and signature
+  const timestamp = Math.floor(Date.now() / 1000);
+  const paymentAmount = amount.toString();
+  const signature = crypto
+    .createHash('md5')
+    .update(
+      DUITKU_MERCHANT_CODE + noPembayaran + paymentAmount + DUITKU_API_KEY
+    )
+    .digest('hex');
+
+  return { deposit, timestamp, signature, noPembayaran };
+});
+
+// Now create payment in Duitku - after DB transaction is complete
+const paymentData = await duitku.Create({
+  amount,
+  code,
+  merchantOrderId: result.noPembayaran,
+  productDetails: `Deposit for ${user.username}`,
+  sign: result.signature,
+  time: result.timestamp,
+  username: user.username,
+  returnUrl: `${process.env.NEXTAUTH_URL}/profile`,
+});
+
+// Handle payment response in another transaction
+await prisma.$transaction(async (tx) => {
+  // Check if payment creation was successful
+  if (paymentData.statusCode !== '00') {
+    await tx.deposits.update({
+      where: { id: result.deposit.id },
+      data: { status: 'FAILED' },
     });
+    
+    throw new Error(`Failed to create payment: ${paymentData.statusMessage}`);
+  }
 
-    // Periksa apakah pembuatan pembayaran berhasil
-    if (paymentData.statusCode !== '00') {
-      // Perbarui kedua catatan ke status GAGAL
-      await prisma.$transaction([
-        prisma.deposits.update({
-          where: { id: result.deposit.id },
-          data: { status: 'FAILED' },
-        }),
-       
-      ]);
+  const urlPaymentMethods = ['DA', 'OV', 'SA', 'QR']; 
+  const vaPaymentMethods = ['I1', 'BR', 'B1', 'BT', 'SP', 'FT', 'M2', 'VA']; 
+  
+  // Determine noPembayaran value based on payment method
+  let noPayment = '';
+  if (urlPaymentMethods.includes(method.code)) {
+    noPayment = paymentData.paymentUrl;
+  } else if (vaPaymentMethods.includes(method.code)) {
+    noPayment = paymentData.vaNumber || '';
+  } else {
+    noPayment = paymentData.vaNumber || paymentData.paymentUrl || '';
+  }
 
-      return NextResponse.json(
-        {
-          error: 'Failed to create payment',
-          details: paymentData.statusMessage,
-        },
-        { status: 400 }
-      );
-    }
-
+  // Update deposit with payment information
+  await tx.deposits.update({
+    where: { id: result.deposit.id },
+    data: { 
+      noPembayaran: noPayment,
+      updatedAt: new Date()
+    },
+  });
+});
   
     return NextResponse.json({
-      paymentUrl: paymentData.paymentUrl,
+      data : result.deposit,
       status: true,
-      statusCode: 200,
+      statusCode: 201,
     });
   } catch (error) {
     console.error('Payment creation error:', error);

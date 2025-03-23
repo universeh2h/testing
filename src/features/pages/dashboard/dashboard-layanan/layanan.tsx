@@ -21,7 +21,7 @@ export function LayananPage() {
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearchTerm(searchTerm);
-    }, 500);
+    }, 5000);
 
     return () => clearTimeout(handler);
   }, [searchTerm]);

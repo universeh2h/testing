@@ -27,7 +27,6 @@ interface LayananTableProps {
 }
 
 export function LayananTable({ data }: LayananTableProps) {
-  console.log(data)
   return (
     <div className="w-full overflow-auto">
       <Table>

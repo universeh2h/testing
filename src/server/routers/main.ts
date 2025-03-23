@@ -15,6 +15,10 @@ export const mainRouter = router({
           judulFlashSale : true,
           layanan : true,
           bannerFlashSale : true,
+          expiredFlashSale : true,
+        },
+        orderBy : {
+          expiredFlashSale : 'desc'
         }
       })
       return {

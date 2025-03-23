@@ -6,21 +6,21 @@ import { Separator } from '@/components/ui/separator';
 import { trpc } from '@/utils/trpc';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
+import { WhatsAppButton } from '../ui/button-wa';
 
 export function Footer() {
   const { data, isLoading, error } = trpc.methods.getMethods.useQuery();
   const paymentMethods = data?.data || [];
+  const {data : settingWeb}   = trpc.setting.getConfig.useQuery()
 
   // Duplikasi array untuk efek scrolling tak terbatas
   const duplicatedMethods = [...paymentMethods, ...paymentMethods];
   
   // Referensi untuk lebar container
   const containerRef = useRef<HTMLDivElement>(null);
-
-  const { data: Popular } = trpc.main.getCategoriesPopular.useQuery();
   
   return (
-    <footer className="pt-20 pb-12" aria-label="Footer Vazzuniverse">
+    <footer className="pt-20 pb-12 relative" aria-label="Footer Vazzuniverse">
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
           {/* Informasi Perusahaan */}
@@ -60,14 +60,7 @@ export function Footer() {
                   Free Fire
                 </Link>
               </li>
-              <li>
-                <Link
-                  href="/order/genshin-impact"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  Genshin Impact
-                </Link>
-              </li>
+            
               <li>
                 <Link
                   href="/valorant"
@@ -90,31 +83,7 @@ export function Footer() {
                 >
                   Cara Top Up
                 </Link>
-              </li>
-              <li>
-                <Link
-                  href="/metode-pembayaran"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  Metode Pembayaran
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/faq"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  Pertanyaan Umum
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/hubungi-kami"
-                  className="text-gray-400 hover:text-white transition-colors"
-                >
-                  Hubungi Kami
-                </Link>
-              </li>
+              </li> 
               <li>
                 <Link
                   href="/syarat-ketentuan"
@@ -230,24 +199,7 @@ export function Footer() {
           </div>
         </div>
 
-        {/* SEO Footer Text untuk Mobile Legends */}
-        <div className="mt-12">
-          <Separator className="mb-6 bg-gray-700" />
-          <div className="text-gray-400 text-sm mt-6 mb-8">
-            <h2 className="text-white text-lg font-medium mb-3">Top Up Diamond Mobile Legends Bang Bang Resmi, Aman, dan Murah</h2>
-            <p className="mb-2">
-              Vazzuniverse adalah platform top up diamond Mobile Legends Bang Bang (MLBB) terpercaya di Indonesia. Kami menyediakan layanan top up diamond ML yang cepat, aman, dan terjangkau untuk para gamer Indonesia.
-            </p>
-            <p className="mb-2">
-              Cara top up diamond Mobile Legends di Vazzuniverse sangat mudah. Cukup masukkan User ID dan Server ID Mobile Legends Anda, pilih nominal diamond yang diinginkan, pilih metode pembayaran yang tersedia, dan diamond akan segera masuk ke akun Anda setelah pembayaran berhasil.
-            </p>
-            <p>
-              Nikmati berbagai promo dan diskon menarik untuk pembelian diamond Mobile Legends Bang Bang. Vazzuniverse mendukung berbagai metode pembayaran lokal seperti GoPay, DANA, OVO, ShopeePay, dan transfer bank untuk kemudahan Anda.
-            </p>
-          </div>
-        </div>
-
-        {/* Copyright */}
+             {/* Copyright */}
         <div className="mt-8">
           <Separator className="mb-6 bg-gray-700" />
           <p className="text-center text-gray-400 text-sm">
@@ -258,6 +210,7 @@ export function Footer() {
           </p>
         </div>
       </div>
+      <WhatsAppButton image={settingWeb?.logo_cs as string}/>
     </footer>
   );
 }

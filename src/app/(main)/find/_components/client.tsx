@@ -30,7 +30,7 @@ export function ClientPage() {
   useEffect(() => {
     const timerId = setTimeout(() => {
       setDebouncedTerm(term)
-    }, 5000)
+    }, 500)
     
     return () => clearTimeout(timerId)
   }, [term])

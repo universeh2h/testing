@@ -115,4 +115,14 @@ export const Deposits = router({
         };
       }
     }),
+    findByNoPembayaran : publicProcedure.input(z.object({
+        depositId : z.string()
+    })
+  ).query(async({ctx,input})  => {
+    return await ctx.prisma.deposits.findFirst({
+      where : {
+        depositId : input.depositId
+      },
+    })
+  })
 });

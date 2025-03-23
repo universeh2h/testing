@@ -28,7 +28,6 @@ export function TableOrder({ search }: { search: string }) {
   const transactions = data?.data || [];
   const totalPages = data?.pagination.totalPages as number 
 
-  console.log(totalPages)
 
   const getStatusBadge = (status: string) => {
     switch (status.toUpperCase()) {

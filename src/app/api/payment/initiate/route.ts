@@ -3,10 +3,19 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { prisma } from '@/lib/prisma';
 import { Digiflazz } from '@/lib/digiflazz';
-import { DIGI_KEY, DIGI_USERNAME, DUITKU_API_KEY, DUITKU_BASE_URL, DUITKU_CALLBACK_URL, DUITKU_EXPIRY_PERIOD, DUITKU_MERCHANT_CODE, DUITKU_RETURN_URL } from '@/constants';
+import { 
+  DIGI_KEY, 
+  DIGI_USERNAME, 
+  DUITKU_API_KEY, 
+  DUITKU_BASE_URL, 
+  DUITKU_CALLBACK_URL, 
+  DUITKU_EXPIRY_PERIOD, 
+  DUITKU_MERCHANT_CODE
+} from '@/constants';
 import { getProfile } from '@/app/(auth)/auth/components/server';
 import { GenerateRandomId } from '@/utils/generateRandomId';
 import { Prisma } from '@prisma/client';
+import { handleOrderStatusChange } from '@/lib/whatsapp-message';
 
 export type RequestPayment = {
   noWa: string;
@@ -20,15 +29,6 @@ export type RequestPayment = {
   nickname: string;
 };
 
-interface PaymentResponse {
-  paymentUrl: string;
-  reference: string;
-  providerReferenceId?: string;
-  statusCode: string;
-  statusMessage: string;
-  merchantOrderId: string;
-  transactionId: number | string;
-}
 
 /**
  * Helper function for safely processing vouchers with race condition handling
@@ -56,11 +56,10 @@ async function processVoucher(
     throw new Error('Invalid or expired voucher code');
   }
 
-  // Lock the voucher row using a raw SQL FOR UPDATE statement
-  // This prevents other transactions from modifying this voucher during our processing
+  // Lock the voucher row to prevent concurrent modifications
   await tx.$executeRaw`SELECT * FROM vouchers WHERE id = ${voucher.id} FOR UPDATE`;
   
-  // Refetch the voucher after locking to get the most up-to-date usage count
+  // Refetch after locking to get the most up-to-date state
   const lockedVoucher = await tx.voucher.findUnique({
     where: { id: voucher.id },
   });
@@ -69,7 +68,7 @@ async function processVoucher(
     throw new Error('Voucher no longer available');
   }
   
-  // Check if usage limit is reached using the latest count
+  // Check usage limits
   if (
     lockedVoucher.usageLimit &&
     lockedVoucher.usageCount >= lockedVoucher.usageLimit
@@ -77,38 +76,32 @@ async function processVoucher(
     throw new Error('Voucher usage limit reached');
   }
 
-  // Check if minimum purchase requirement is met
+  // Check minimum purchase requirement
   if (voucher.minPurchase && price < voucher.minPurchase) {
     throw new Error(`Minimum purchase of ${voucher.minPurchase} required for this voucher`);
   }
 
-  // Check if voucher is applicable to this category
+  // Verify voucher applicability to this category
   const isApplicable =
     voucher.isForAllCategories ||
-    voucher.categories.some(
-      (vc) => vc.categoryId === categoryDetails.id
-    );
+    voucher.categories.some(vc => vc.categoryId === categoryDetails.id);
 
   if (!isApplicable) {
     throw new Error('Voucher not applicable to this product category');
   }
 
-  // Calculate discount
+  // Calculate discount amount
   let discountAmount = 0;
   if (voucher.discountType === 'PERCENTAGE') {
-    // Apply percentage discount
     discountAmount = (price * voucher.discountValue) / 100;
     if (voucher.maxDiscount) {
-      discountAmount = Math.min(
-        discountAmount,
-        voucher.maxDiscount
-      );
+      discountAmount = Math.min(discountAmount, voucher.maxDiscount);
     }
   } else {
     discountAmount = voucher.discountValue;
   }
 
-  // Update voucher usage count immediately while we still have the lock
+  // Update voucher usage count immediately while we have the lock
   await tx.voucher.update({
     where: { id: voucher.id },
     data: { usageCount: { increment: 1 } },
@@ -125,8 +118,8 @@ export async function POST(req: NextRequest) {
   try {
     const digiflazz = new Digiflazz(DIGI_USERNAME, DIGI_KEY);
     const body = await req.json();
-
     const session = await getProfile();
+    
     const {
       layanan,
       paymentCode,
@@ -139,9 +132,7 @@ export async function POST(req: NextRequest) {
       accountId,
     }: RequestPayment = body;
 
-    console.log(body);
-
-    // Validasi input
+    // Validate required input
     if (!paymentCode || !layanan || !noWa) {
       return NextResponse.json(
         {
@@ -164,42 +155,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate consistent merchant order ID and payment reference
+    // Generate order IDs
     const merchantOrderId = GenerateRandomId();
     const paymentReference = GenerateRandomId();
+    const baseUrl = process.env.NEXTAUTH_URL || '';
 
-    // Start a Prisma transaction with isolation level serializable for strongest consistency
+    // Start transaction with strong isolation level
     return await prisma.$transaction(
       async (tx) => {
-        // Fetch the service details
+        // Get product details
         const productDetails = await tx.layanan.findFirst({
           where: { layanan },
         });
 
         if (!productDetails) {
           return NextResponse.json(
-            { statusCode: 404, message: 'Product NotFound' },
+            { statusCode: 404, message: 'Product not found' },
             { status: 404 }
           );
         }
 
-        // Get category details for voucher validation
+        // Get category for voucher validation
         const categoryDetails = await tx.categories.findFirst({
           where: { id: productDetails.kategoriId },
         });
 
         if (!categoryDetails) {
           return NextResponse.json(
-            { statusCode: 404, message: 'Category NotFound' },
+            { statusCode: 404, message: 'Category not found' },
             { status: 404 }
           );
         }
 
-        // Base price calculation
+        // Calculate base price
         let price: number;
         let discountAmount = 0;
         let appliedVoucherId: number | null = null;
 
+        // Apply pricing rules
         if (
           productDetails.isFlashSale &&
           productDetails.expiredFlashSale &&
@@ -212,16 +205,16 @@ export async function POST(req: NextRequest) {
           price = productDetails.harga;
         }
 
-        // Apply voucher if provided using our race-condition-safe function
+        // Process voucher if provided
         if (voucherCode) {
           try {
             const voucherResult = await processVoucher(tx, voucherCode, price, categoryDetails);
             price = voucherResult.price;
             discountAmount = voucherResult.discountAmount;
             appliedVoucherId = voucherResult.appliedVoucherId;
-          } catch (error) {
+          } catch (error: any) {
             return NextResponse.json(
-              { statusCode: 400, message: error?.message },
+              { statusCode: 400, message: error.message },
               { status: 400 }
             );
           }
@@ -229,15 +222,12 @@ export async function POST(req: NextRequest) {
 
         const paymentAmount = price;
 
+        // Get payment method details
         const metode = await tx.method.findFirst({
-          where: {
-            code: paymentCode
-          }
+          where: { code: paymentCode }
         });
-    
-        console.log(price);
         
-        // Create transaction record in Pembayaran table
+        // Create transaction record
         const transaction = await tx.pembayaran.create({
           data: {
             orderId: merchantOrderId,
@@ -251,10 +241,9 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Add userId only if a user is logged in
+        // Get user ID if logged in
         let userId = null;
         if (session?.session?.id) {
-          // Check if user exists first
           const userExists = await tx.users.findUnique({
             where: { id: session.session.id },
           });
@@ -263,15 +252,13 @@ export async function POST(req: NextRequest) {
             userId = session.session.id;
           }
         }
- 
         
+        // Get service details
         const layanans = await tx.layanan.findFirst({
-          where: {
-            layanan,
-          },
+          where: { layanan },
         });
 
-        // Create pembelian record with the same reference
+        // Create purchase record
         await tx.pembelian.create({
           data: {
             harga: paymentAmount,
@@ -293,12 +280,16 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Check deposit availability if user is logged in and payment method is SALDO
+        // Prepare WhatsApp notifications
+        const invoiceLink = `${baseUrl}/invoice?invoice=${merchantOrderId}`;
+        const customerName = session?.session?.username ?? "Guest";
+
+        // Handle SALDO payment method
         if (session?.session?.id && paymentCode === "SALDO") {
-          // Lock the user record to prevent concurrent balance modifications
+          // Lock user record for balance check
           await tx.$executeRaw`SELECT * FROM users WHERE id = ${session.session.id} FOR UPDATE`;
           
-          // Check if user has enough balance
+          // Check balance
           const user = await tx.users.findUnique({
             where: { id: session.session.id },
             select: { balance: true }
@@ -306,18 +297,18 @@ export async function POST(req: NextRequest) {
           
           if (!user || user.balance < paymentAmount) {
             return NextResponse.json(
-              { statusCode: 400, message: 'Saldo anda tidak mencukupi' },
+              { statusCode: 400, message: 'Saldo tidak mencukupi' },
               { status: 400 }
             );
           }
           
-          // Deduct balance from user
+          // Deduct balance
           await tx.users.update({
             where: { id: session.session.id },
             data: { balance: { decrement: paymentAmount } }
           });
           
-          // Update pembayaran status to PAID
+          // Update payment status
           await tx.pembayaran.update({
             where: { orderId: merchantOrderId },
             data: { 
@@ -326,7 +317,7 @@ export async function POST(req: NextRequest) {
             }
           });
           
-          // Update pembelian status to PAID - ref_id already set
+          // Update purchase status
           await tx.pembelian.update({
             where: { orderId: merchantOrderId },
             data: { 
@@ -335,50 +326,64 @@ export async function POST(req: NextRequest) {
             }
           });
         
-          console.log(layanans?.providerId);
-          // Send to Digiflazz using our consistent reference ID
-          const reqtoDigi = await digiflazz.TopUp({
+          // Process with Digiflazz
+          const digiResponse = await digiflazz.TopUp({
             productCode: layanans?.providerId as string,
             userId: accountId,
             serverId: serverId,
             reference: paymentReference
           });
           
-          const datas = reqtoDigi?.data;
-          if(datas) {
+          // Update status based on Digiflazz response
+          const digiData = digiResponse?.data;
+          if (digiData) {
             await tx.pembelian.update({
               where: { orderId: merchantOrderId },
               data: { 
-                status: datas.status === 'Pending' ? 'PROCESS' : 
-                       datas.status === 'Sukses' ? 'SUCCESS' : 'FAILED',
-                sn: datas.sn,
+                status: digiData.status === 'Pending' ? 'PROCESS' : 
+                         digiData.status === 'Sukses' ? 'SUCCESS' : 'FAILED',
+                sn: digiData.sn,
                 updatedAt: new Date()
               }
             });
           }
-          
+
+          // Send WhatsApp notifications for SALDO payment
+          await handleOrderStatusChange({
+            orderData: {
+              amount: paymentAmount,
+              link: invoiceLink,
+              productName: layanan,
+              status: 'PAID',
+              customerName,
+              method: 'SALDO',
+              orderId: merchantOrderId,
+              whatsapp: noWa
+            }
+          });
+
           // Return success response
           return NextResponse.json({
             reference: paymentReference,
             statusCode: "00",
-            paymentUrl: `${process.env.NEXTAUTH_URL}/invoice?invoice=${merchantOrderId}`,
+            paymentUrl: `${baseUrl}/invoice?invoice=${merchantOrderId}`,
             statusMessage: "PROCESS",
             merchantOrderId: merchantOrderId,
             transactionId: transaction.id,
           });
         }
 
-        // Generate signature for Duitku
         const signature = crypto
           .createHash('md5')
           .update(
             DUITKU_MERCHANT_CODE +
-              merchantOrderId +
-              paymentAmount +
-              DUITKU_API_KEY
+            merchantOrderId +
+            paymentAmount +
+            DUITKU_API_KEY
           )
           .digest('hex');
 
+        // Prepare Duitku payload
         const payload = {
           merchantCode: DUITKU_MERCHANT_CODE,
           paymentAmount: paymentAmount,
@@ -387,48 +392,46 @@ export async function POST(req: NextRequest) {
           paymentMethod: paymentCode,
           customerVaName: nickname,
           phoneNumber: noWa,
-          returnUrl: `${process.env.NEXTAUTH_URL}/invoice/${merchantOrderId}`,
+          returnUrl: `${baseUrl}/invoice/${merchantOrderId}`,
           callbackUrl: DUITKU_CALLBACK_URL,
           signature: signature,
           expiryPeriod: DUITKU_EXPIRY_PERIOD,
         };
 
         try {
+          // Call Duitku API
           const response = await axios.post(
             `${DUITKU_BASE_URL}/api/merchant/v2/inquiry`,
             payload,
             {
-              headers: {
-                'Content-Type': 'application/json',
-              },
+              headers: { 'Content-Type': 'application/json' }
             }
           );
 
-          console.log('Duitku API response:', response.data);
           const data = response.data;
 
-          // Check for valid response
+          // Validate response
           if (!data.statusCode) {
             return NextResponse.json(
               {
                 success: false,
-                message: 'Invalid response from API: ' + JSON.stringify(data),
+                message: 'Invalid response from payment gateway',
               },
               { status: 500 }
             );
           }
           
-          // Store Duitku's reference separately
-          const urlPaymentMethods = ['DA', 'OV', 'SA', 'QR']; // DANA, OVO, ShopeePay, QRIS
-          const vaPaymentMethods = ['I1', 'BR', 'B1', 'BT', 'SP', 'FT', 'M2', 'VA']; // Various bank VAs
+          // Categorize payment methods
+          const urlPaymentMethods = ['DA', 'OV', 'SA', 'QR']; 
+          const vaPaymentMethods = ['I1', 'BR', 'B1', 'BT', 'SP', 'FT', 'M2', 'VA']; 
           
-          // Prepare update data based on payment method
-          let updateData: any = {
+          // Prepare payment info based on method type
+          let updateData = {
             reference: paymentReference,
-            updatedAt: new Date()
+            updatedAt: new Date(),
+            noPembayaran: ''
           };
           
-          // Add the appropriate payment information based on payment method
           if (urlPaymentMethods.includes(paymentCode)) {
             updateData.noPembayaran = data.paymentUrl;
           } else if (vaPaymentMethods.includes(paymentCode)) {
@@ -437,12 +440,27 @@ export async function POST(req: NextRequest) {
             updateData.noPembayaran = data.vaNumber || data.paymentUrl || '';
           }
           
-          // Update the pembayaran record with the appropriate information
+          // Update payment record
           await tx.pembayaran.update({
             where: { orderId: merchantOrderId },
             data: updateData
           });
+
+          // Send WhatsApp notifications for pending payment
+          await handleOrderStatusChange({
+            orderData: {
+              amount: paymentAmount,
+              link: invoiceLink,
+              productName: layanan,
+              status: 'PENDING',
+              customerName,
+              method: metode?.name || paymentCode,
+              orderId: merchantOrderId,
+              whatsapp: noWa
+            }
+          });
           
+          // Return success response
           return NextResponse.json({
             paymentUrl: data.paymentUrl,
             reference: paymentReference, 
@@ -453,10 +471,9 @@ export async function POST(req: NextRequest) {
             transactionId: transaction.id,
           });
         } catch (apiError: any) {
-          console.error('Duitku API error:', apiError.message);
-          console.error('Response data:', apiError.response?.data);
-
-          // Update transaction status to FAILED in case of error
+          console.error('Payment gateway error:', apiError.message);
+          
+          // Update status to FAILED
           await tx.pembayaran.update({
             where: { orderId: merchantOrderId },
             data: { 
@@ -476,8 +493,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json(
             {
               statusCode: apiError.response?.status || '500',
-              statusMessage:
-                apiError.response?.data?.message || 'Payment gateway error',
+              statusMessage: apiError.response?.data?.message || 'Payment gateway error',
             },
             { status: apiError.response?.status || 500 }
           );
@@ -486,10 +502,10 @@ export async function POST(req: NextRequest) {
       {
         maxWait: 5000, 
         timeout: 10000,
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable // Use the strongest isolation level
+        isolationLevel: Prisma.TransactionIsolationLevel.Serializable
       }
     );
-  } catch (error) {
+  } catch (error: any) {
     console.error('Transaction processing error:', error);
     return NextResponse.json(
       {

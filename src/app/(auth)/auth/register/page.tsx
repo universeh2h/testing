@@ -42,7 +42,7 @@ export default function RegisterPage() {
       const result = await CreateUser({ credentials: data });
       if (result.success) {
         toast.success(result.message);
-        router.push('/login');
+        router.push('/auth/login');
       } else {
         toast.error(result.message);
       }
@@ -124,7 +124,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="text-center text-sm">
-          Already have an account?{' '}
+          Sudah Punya Account?{' '}
           <Link href="/auth/login" className="text-blue-500 hover:underline">
             Login
           </Link>
